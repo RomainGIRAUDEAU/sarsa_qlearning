@@ -3,7 +3,7 @@ import numpy as np
 import time
 import matplotlib.pyplot as plt
 
-epi_step =[]
+epi_step = []
 
 """
 SARSA on policy learning python implementation.
@@ -13,6 +13,12 @@ between SARSA and Qlearning is that SARSA takes the next action based on the cur
 while qlearning takes the action with maximum utility of next state.
 Using the simplest gym environment for brevity: https://gym.openai.com/envs/FrozenLake-v0/
 """
+
+
+def learn(Q,state,state2,reward,action,action2):
+    predict = Q[state,action]
+    target = reward+gamma * Q[state2,action2]
+    Q[state,action] += alpha * (target - predict)
 
 def init_q(s, a, type="ones"):
     """
@@ -41,7 +47,8 @@ def epsilon_greedy(Q, epsilon, n_actions, s, train=False):
         action = np.random.randint(0, n_actions)
     return action
 
-def sarsa(alpha, gamma, epsilon, episodes, max_steps, n_tests, render = False, test=False):
+
+def sarsa(alpha, gamma, epsilon, episodes, max_steps, n_tests, render=False, test=False):
     """
     @param alpha learning rate
     @param gamma decay factor
@@ -49,10 +56,11 @@ def sarsa(alpha, gamma, epsilon, episodes, max_steps, n_tests, render = False, t
     @param max_steps for max step in each episode
     @param n_tests number of test episodes
     """
-    env = gym.make('Taxi-v2')
+    env = gym.make('FrozenLake-v0')
     n_states, n_actions = env.observation_space.n, env.action_space.n
-    Q = init_q(n_states, n_actions, type="ones")
+    Q = init_q(n_states, n_actions, type="zeros")
     timestep_reward = []
+
     for episode in range(episodes):
         print(f"Episode: {episode}")
         total_reward = 0
@@ -67,11 +75,10 @@ def sarsa(alpha, gamma, epsilon, episodes, max_steps, n_tests, render = False, t
             s_, reward, done, info = env.step(a)
             total_reward += reward
             a_ = epsilon_greedy(Q, epsilon, n_actions, s_)
-            if done:
-                Q[s, a] += alpha * ( reward  - Q[s, a] )
-            else:
-                Q[s, a] += alpha * ( reward + (gamma * Q[s_, a_] ) - Q[s, a] )
+            epsilon = np.sqrt(epsilon)
+            Q[s, a] += alpha * (reward + (gamma * Q[s_, a_]) - Q[s, a])
             s, a = s_, a_
+
             if done:
                 if render:
                     print(f"This episode took {t} timesteps and reward {total_reward}")
@@ -79,14 +86,13 @@ def sarsa(alpha, gamma, epsilon, episodes, max_steps, n_tests, render = False, t
                 epi_step.append(t)
                 break
 
-
     plt.plot(epi_step)
     plt.show()
-    if render:
-        print(f"Here are the Q values:\n{Q}\nTesting now:")
+    print(f"Here are the Q values:\n{Q}\nTesting now:")
     if test:
         test_agent(Q, env, n_tests, n_actions)
     return timestep_reward
+
 
 def test_agent(Q, env, n_tests, n_actions, delay=0.1):
     for test in range(n_tests):
@@ -108,11 +114,11 @@ def test_agent(Q, env, n_tests, n_actions, delay=0.1):
                 break
 
 
-if __name__ =="__main__":
+if __name__ == "__main__":
     alpha = 0.4
     gamma = 0.999
     epsilon = 0.9
-    episodes = 3000
+    episodes = 7000
     max_steps = 2500
     n_tests = 20
     timestep_reward = sarsa(alpha, gamma, epsilon, episodes, max_steps, n_tests)

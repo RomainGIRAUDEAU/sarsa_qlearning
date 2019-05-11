@@ -3,16 +3,13 @@ import numpy as np
 import time
 import matplotlib.pyplot as plt
 
-epi_step = []
 
-"""
-SARSA on policy learning python implementation.
-This is a python implementation of the SARSA algorithm in the Sutton and Barto's book on
-RL. It's called SARSA because - (state, action, reward, state, action). The only difference
-between SARSA and Qlearning is that SARSA takes the next action based on the current policy
-while qlearning takes the action with maximum utility of next state.
-Using the simplest gym environment for brevity: https://gym.openai.com/envs/FrozenLake-v0/
-"""
+
+# Exploration parameters
+epsilon = 1.0                 # Exploration rate
+max_epsilon = 1.0             # Exploration probability at start
+min_epsilon = 0.01            # Minimum exploration probability
+decay_rate = 0.005
 
 
 def learn(Q,state,state2,reward,action,action2):
@@ -48,15 +45,10 @@ def epsilon_greedy(Q, epsilon, n_actions, s, train=False):
     return action
 
 
-def sarsa(alpha, gamma, epsilon, episodes, max_steps, n_tests, render=False, test=False):
-    """
-    @param alpha learning rate
-    @param gamma decay factor
-    @param epsilon for exploration
-    @param max_steps for max step in each episode
-    @param n_tests number of test episodes
-    """
-    env = gym.make('FrozenLake-v0')
+
+def sarsa(env,alpha, gamma, epsilon, episodes, max_steps, n_tests, render=False, test=False):
+
+    plt.axis([0,500,0,episodes])
     n_states, n_actions = env.observation_space.n, env.action_space.n
     Q = init_q(n_states, n_actions, type="zeros")
     timestep_reward = []
@@ -75,7 +67,7 @@ def sarsa(alpha, gamma, epsilon, episodes, max_steps, n_tests, render=False, tes
             s_, reward, done, info = env.step(a)
             total_reward += reward
             a_ = epsilon_greedy(Q, epsilon, n_actions, s_)
-            epsilon = np.sqrt(epsilon)
+            epsilon = min_epsilon + (max_epsilon - min_epsilon) * np.exp(-decay_rate * episode)
             Q[s, a] += alpha * (reward + (gamma * Q[s_, a_]) - Q[s, a])
             s, a = s_, a_
 
@@ -83,43 +75,54 @@ def sarsa(alpha, gamma, epsilon, episodes, max_steps, n_tests, render=False, tes
                 if render:
                     print(f"This episode took {t} timesteps and reward {total_reward}")
                 timestep_reward.append(total_reward)
-                epi_step.append(t)
                 break
 
-    plt.plot(epi_step)
-    plt.show()
+
     print(f"Here are the Q values:\n{Q}\nTesting now:")
-    if test:
-        test_agent(Q, env, n_tests, n_actions)
-    return timestep_reward
+    return Q
 
+def testing_game(env,qtable):
+    winning_game =0
+    #### test our matrix #############################
+    env.reset()
 
-def test_agent(Q, env, n_tests, n_actions, delay=0.1):
-    for test in range(n_tests):
-        print(f"Test #{test}")
-        s = env.reset()
+    for episode in range(10000):
+        state = env.reset()
+        step = 0
         done = False
-        epsilon = 0
-        total_reward = 0
-        while True:
-            time.sleep(delay)
-            env.render()
-            a = epsilon_greedy(Q, epsilon, n_actions, s, train=True)
-            print(f"Chose action {a} for state {s}")
-            s, reward, done, info = env.step(a)
-            total_reward += reward
+        print("****************************************************")
+        print("EPISODE ", episode)
+
+        for step in range(max_steps):
+
+            # Take the action (index) that have the maximum expected future reward given that state
+            action = np.argmax(qtable[state, :])
+
+            new_state, reward, done, info = env.step(action)
+
             if done:
-                print(f"Episode reward: {total_reward}")
-                time.sleep(1)
+                # Here, we decide to only print the last state (to see if our agent is on the goal or fall into an hole)
+                env.render()
+                if (reward == 1):
+                    winning_game += 1
+
+                # We print the number of step it took.
+                print("Number of steps", step)
                 break
+            state = new_state
+    env.close()
+    return winning_game
+
 
 
 if __name__ == "__main__":
     alpha = 0.4
     gamma = 0.999
     epsilon = 0.9
-    episodes = 7000
-    max_steps = 2500
+    episodes = 30000
+    max_steps = 250
     n_tests = 20
-    timestep_reward = sarsa(alpha, gamma, epsilon, episodes, max_steps, n_tests)
-    print(timestep_reward)
+    env = gym.make('FrozenLake8x8-v0')
+    Q = sarsa(env,alpha, gamma, epsilon, episodes, max_steps, n_tests)
+
+    print(testing_game(env,Q))

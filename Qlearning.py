@@ -1,61 +1,105 @@
-import gym
 import numpy as np
-import time, pickle, os
+import gym
+import random
 
-env = gym.make('FrozenLake-v0')
+winning_game = 0
 
-epsilon = 0.9
-total_episodes = 10000
-max_steps = 100
+env = gym.make("FrozenLake-v0")
 
-lr_rate = 0.81
-gamma = 0.96
+action_size = env.action_space.n
+state_size = env.observation_space.n
 
-Q = np.zeros((env.observation_space.n, env.action_space.n))
-
-
-def choose_action(state):
-    action = 0
-    if np.random.uniform(0, 1) < epsilon:
-        action = env.action_space.sample()
-    else:
-        action = np.argmax(Q[state, :])
-    return action
+qtable = np.zeros((state_size, action_size))
+print(qtable)
 
 
-def learn(state, state2, reward, action):
-    predict = Q[state, action]
-    target = reward + gamma * np.max(Q[state2, :])
-    Q[state, action] = Q[state, action] + lr_rate * (target - predict)
+total_episodes = 30000        # Total episodes
+learning_rate = 0.8           # Learning rate
+max_steps = 2500                   # Max steps per episode
+gamma = 0.95                  # Discounting rate
 
+# Exploration parameters
+epsilon = 1.0                 # Exploration rate
+max_epsilon = 1.0             # Exploration probability at start
+min_epsilon = 0.01            # Minimum exploration probability
+decay_rate = 0.005             # Exponential decay rate for exploration prob
 
-# Start
+# List of rewards
+rewards = []
+
+# 2 For life or until learning is stopped
 for episode in range(total_episodes):
-    print("episose numero :"+str(episode))
+    # Reset the environment
     state = env.reset()
-    t = 0
+    step = 0
+    done = False
+    total_rewards = 0
 
-    while t < max_steps:
-        #env.render()
+    for step in range(max_steps):
+        # 3. Choose an action a in the current world state (s)
+        ## First we randomize a number
+        exp_exp_tradeoff = random.uniform(0, 1)
 
-        action = choose_action(state)
+        ## If this number > greater than epsilon --> exploitation (taking the biggest Q value for this state)
+        if exp_exp_tradeoff > epsilon:
+            action = np.argmax(qtable[state, :])
 
-        state2, reward, done, info = env.step(action)
+        # Else doing a random choice --> exploration
+        else:
+            action = env.action_space.sample()
 
-        learn(state, state2, reward, action)
+        # Take the action (a) and observe the outcome state(s') and reward (r)
+        new_state, reward, done, info = env.step(action)
 
-        state = state2
+        # Update Q(s,a):= Q(s,a) + lr [R(s,a) + gamma * max Q(s',a') - Q(s,a)]
+        # qtable[new_state,:] : all the actions we can take from new state
+        qtable[state, action] = qtable[state, action] + learning_rate * (
+                    reward + gamma * np.max(qtable[new_state, :]) - qtable[state, action])
 
-        t += 1
+        total_rewards += reward
 
-        if done:
+        # Our new state is state
+        state = new_state
+
+        # If done (if we're dead) : finish episode
+        if done == True:
             break
 
-        time.sleep(0.1)
+    # Reduce epsilon (because we need less and less exploration)
+    epsilon = min_epsilon + (max_epsilon - min_epsilon) * np.exp(-decay_rate * episode)
+    rewards.append(total_rewards)
 
-print(Q)
-
-with open("frozenLake_qTable.pkl", 'wb') as f:
-    pickle.dump(Q, f)
+print("Score over time: " + str(sum(rewards) / total_episodes))
+print(qtable)
 
 
+
+#### test our matrix #############################
+env.reset()
+
+for episode in range(1000):
+    state = env.reset()
+    step = 0
+    done = False
+    print("****************************************************")
+    print("EPISODE ", episode)
+
+    for step in range(max_steps):
+
+        # Take the action (index) that have the maximum expected future reward given that state
+        action = np.argmax(qtable[state, :])
+
+        new_state, reward, done, info = env.step(action)
+
+        if done:
+            # Here, we decide to only print the last state (to see if our agent is on the goal or fall into an hole)
+            env.render()
+            if( reward == 1):
+                winning_game +=1
+
+            # We print the number of step it took.
+            print("Number of steps", step)
+            break
+        state = new_state
+env.close()
+print("number of game wins "+str(winning_game))

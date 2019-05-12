@@ -48,7 +48,6 @@ def epsilon_greedy(Q, epsilon, n_actions, s, train=False):
 
 def sarsa(env,alpha, gamma, epsilon, episodes, max_steps, n_tests, render=False, test=False):
 
-    plt.axis([0,500,0,episodes])
     n_states, n_actions = env.observation_space.n, env.action_space.n
     Q = init_q(n_states, n_actions, type="zeros")
     timestep_reward = []
@@ -67,7 +66,7 @@ def sarsa(env,alpha, gamma, epsilon, episodes, max_steps, n_tests, render=False,
             s_, reward, done, info = env.step(a)
             total_reward += reward
             a_ = epsilon_greedy(Q, epsilon, n_actions, s_)
-            epsilon = min_epsilon + (max_epsilon - min_epsilon) * np.exp(-decay_rate * episode)
+
             Q[s, a] += alpha * (reward + (gamma * Q[s_, a_]) - Q[s, a])
             s, a = s_, a_
 
@@ -76,6 +75,8 @@ def sarsa(env,alpha, gamma, epsilon, episodes, max_steps, n_tests, render=False,
                     print(f"This episode took {t} timesteps and reward {total_reward}")
                 timestep_reward.append(total_reward)
                 break
+        epsilon = min_epsilon + (max_epsilon - min_epsilon) * np.exp(-decay_rate * episode)
+
 
 
     print(f"Here are the Q values:\n{Q}\nTesting now:")
@@ -119,10 +120,10 @@ if __name__ == "__main__":
     alpha = 0.4
     gamma = 0.999
     epsilon = 0.9
-    episodes = 30000
+    episodes = 100000
     max_steps = 250
     n_tests = 20
-    env = gym.make('FrozenLake8x8-v0')
+    env = gym.make('FrozenLake-v0')
     Q = sarsa(env,alpha, gamma, epsilon, episodes, max_steps, n_tests)
 
     print(testing_game(env,Q))
